@@ -1,1 +1,117 @@
+local http =
+    syn and syn.request or
+    http and http.request or
+    http_request or
+    request
 
+local HttpService = game:GetService("HttpService")
+local player = game.Players.LocalPlayer
+
+local lastSent  = nil
+local messageId = nil
+
+local function dataChanged(mana,magic,frag,echo,dom,pfrag,trem,wcore,vomen)
+    if not lastSent then return true end
+    return  lastSent.mana ~= mana or lastSent.magic ~= magic or
+            lastSent.frag ~= frag or lastSent.echo ~= echo or
+            lastSent.dom ~= dom or lastSent.pfrag ~= pfrag or
+            lastSent.trem ~= trem or lastSent.wcore ~= wcore or
+            lastSent.vomen ~= vomen
+end
+
+local function buildEmbed(mana,magic,frag,echo,dom,pfrag,trem,wcore,vomen,sF,sD)
+    local now = os.date("*t")
+    local timeStr = string.format("%02d:%02d", now.hour, now.min)
+
+    return {
+        title = "📦 " .. player.Name,
+        color = 7506394,
+        fields = {
+            {
+                name  = "🔵 Set Frieren  —  Sets: " .. sF,
+                value =
+                    "Mana Core: **"..mana.."**\n"..
+                    "Magic Essence: **"..magic.."**\n"..
+                    "Ancient Fragment: **"..frag.."**\n"..
+                    "Spell Echo: **"..echo.."**",
+                inline = true
+            },
+            {
+                name  = "🟡 Set Dio  —  Sets: " .. sD,
+                value =
+                    "Dominion Brand: **"..dom.."**\n"..
+                    "Power Fragment: **"..pfrag.."**\n"..
+                    "Time Remnant: **"..trem.."**\n"..
+                    "World Core: **"..wcore.."**\n"..
+                    "Vampire Omen: **"..vomen.."**",
+                inline = true
+            }
+        },
+        footer = { text = "🕐 อัปเดตเมื่อ " .. timeStr }
+    }
+end
+
+local function send(mana,magic,frag,echo,dom,pfrag,trem,wcore,vomen,sF,sD)
+    local embed = buildEmbed(mana,magic,frag,echo,dom,pfrag,trem,wcore,vomen,sF,sD)
+    local body  = HttpService:JSONEncode({ embeds = { embed } })
+
+    if messageId then
+        http({
+            Url     = WEBHOOK .. "/messages/" .. messageId,
+            Method  = "PATCH",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body    = body
+        })
+    else
+        local res = http({
+            Url     = WEBHOOK .. "?wait=true",
+            Method  = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body    = body
+        })
+
+        local ok, data = pcall(function()
+            return HttpService:JSONDecode(res.Body)
+        end)
+
+        if ok and data and data.id then
+            messageId = data.id
+        end
+    end
+
+    lastSent = {mana=mana,magic=magic,frag=frag,echo=echo,dom=dom,pfrag=pfrag,trem=trem,wcore=wcore,vomen=vomen}
+end
+
+local remote = game:GetService("ReplicatedStorage"):FindFirstChild("UpdateInventory", true)
+
+remote.OnClientEvent:Connect(function(category, data)
+    if category ~= "Items" then return end
+
+    local mana,magic,frag,echo = 0,0,0,0
+    local dom,pfrag,trem,wcore,vomen = 0,0,0,0,0
+
+    for _,item in pairs(data) do
+        local name = item.name
+        local qty  = item.quantity or 1
+
+        if     name == "Mana Core"        then mana   += qty
+        elseif name == "Magic Essence"    then magic  += qty
+        elseif name == "Ancient Fragment" then frag   += qty
+        elseif name == "Spell Echo"       then echo   += qty
+        elseif name == "Dominion Brand"   then dom    += qty
+        elseif name == "Power Fragment"   then pfrag  += qty
+        elseif name == "Time Remnant"     then trem   += qty
+        elseif name == "World Core"       then wcore  += qty
+        elseif name == "Vampire Omen"     then vomen  += qty
+        end
+    end
+
+    if not dataChanged(mana,magic,frag,echo,dom,pfrag,trem,wcore,vomen) then return end
+
+    local sF = math.min(math.floor(mana/1), math.floor(magic/5), math.floor(frag/10), math.floor(echo/18))
+    local sD = math.min(math.floor(dom/80), math.floor(pfrag/20), math.floor(trem/12), math.floor(wcore/6), math.floor(vomen/2))
+
+    send(mana,magic,frag,echo,dom,pfrag,trem,wcore,vomen,sF,sD)
+end)
+
+print("✅ Item tracker ready")
