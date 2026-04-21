@@ -19,9 +19,22 @@ local function dataChanged(mana,magic,frag,echo,dom,pfrag,trem,wcore,vomen)
             lastSent.vomen ~= vomen
 end
 
+local function need(have, perSet)
+    local remainder = have % perSet
+    if remainder == 0 then return 0 end
+    return perSet - remainder
+end
+
 local function buildEmbed(mana,magic,frag,echo,dom,pfrag,trem,wcore,vomen,sF,sD)
     local now = os.date("*t")
     local timeStr = string.format("%02d:%02d", now.hour, now.min)
+
+    local function line(name, have, perSet)
+        local sets = math.floor(have / perSet)
+        local left = need(have, perSet)
+        local leftStr = left == 0 and "✅ ครบแล้ว" or "เหลืออีก **"..left.."**"
+        return name..": **"..have.."** — ได้ **"..sets.."** sets — "..leftStr.."\n"
+    end
 
     return {
         title = "📦 " .. player.Name,
@@ -30,21 +43,21 @@ local function buildEmbed(mana,magic,frag,echo,dom,pfrag,trem,wcore,vomen,sF,sD)
             {
                 name  = "🔵 Set Frieren  —  Sets: " .. sF,
                 value =
-                    "Mana Core: **"..mana.."**\n"..
-                    "Magic Essence: **"..magic.."**\n"..
-                    "Ancient Fragment: **"..frag.."**\n"..
-                    "Spell Echo: **"..echo.."**",
-                inline = true
+                    line("Mana Core",        mana,  1)  ..
+                    line("Magic Essence",    magic, 5)  ..
+                    line("Ancient Fragment", frag,  10) ..
+                    line("Spell Echo",       echo,  18),
+                inline = false
             },
             {
                 name  = "🟡 Set Dio  —  Sets: " .. sD,
                 value =
-                    "Dominion Brand: **"..dom.."**\n"..
-                    "Power Fragment: **"..pfrag.."**\n"..
-                    "Time Remnant: **"..trem.."**\n"..
-                    "World Core: **"..wcore.."**\n"..
-                    "Vampire Omen: **"..vomen.."**",
-                inline = true
+                    line("Dominion Brand",  dom,   80) ..
+                    line("Power Fragment",  pfrag, 20) ..
+                    line("Time Remnant",    trem,  12) ..
+                    line("World Core",      wcore, 6)  ..
+                    line("Vampire Omen",    vomen, 2),
+                inline = false
             }
         },
         footer = { text = "🕐 อัปเดตเมื่อ " .. timeStr }
